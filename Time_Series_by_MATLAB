@@ -1,0 +1,207 @@
+classdef Time_Series
+    
+    properties
+        data
+    end
+    properties (Dependent = true)
+        N
+    end
+    
+    
+    
+    
+    
+    
+    %% methods:
+    methods
+        
+        
+        % Constructor Function:
+        function obj = Time_Series( time_series )
+            
+            if ~ isvector( time_series )
+                error('The entrance data should have been as a time series');
+            end
+            
+            obj.data = time_series(:);
+            
+        end
+        
+        
+        
+        % Determining the number of turning points:
+        function P = Turning_Points(obj)
+            
+            Data = obj.data(:)	;
+            P = 0;
+
+            for i = 2:length( Data ) - 1
+                if Data(i) > Data( i-1 )  &&  Data(i) > Data( i+1 )
+                    P = P + 1;
+                    
+                elseif Data(i) < Data( i-1 )  &&  Data(i) < Data( i+1 )
+                    P = P + 1;
+                    
+                end
+            end
+            
+        end
+        
+        
+        
+        % Determining the "Z-Value" using the 'Turning Point Test':
+        function Z = Z_Value_Turning_Point_Test(obj)
+            
+            Data = obj.data(:) ;
+            n = length(Data);
+            P = obj.Turning_Points();
+            
+            % Mathematical Expectation:
+            Ep = 2 * ( n - 2 ) / 3;
+            
+            % Variance of Turning Points:
+            varP = ( 16 * n - 29 ) / 90;
+            
+            % Putting all together:
+            Z = abs( (P - Ep) / sqrt(varP) );
+            
+        end
+        
+        
+        
+        % Determining the "Z-Value" using the 'Kendall Test':
+        function Z = Z_Value_Kendall_Test( obj )
+            
+            Data = obj.data(:) ;
+            n = length( Data );
+            p = zeros(n-1 , 1);
+            
+            for i = 1 : n-1
+                p(i) = length(  find(Data(i) > Data(i+1 : end))  );
+            end
+            
+            S = sum( p );
+            k = 4 * S / ( n * (n-1) )  -  1;
+            var_k = ( 2 * (2*n+5) )  /  ( 9* n * (n+1) );
+            Z = abs(  k / sqrt( var_k)  );
+            
+        end
+        
+        
+        
+        % Determining the "Z-Value" using the 'Mann-Kendall Test':
+        function [Z1 , Z2] = Z_Value_Mann_Kendall_Test( obj )
+            
+            n = obj.N;
+            Z1 = z_value( obj );
+            
+            
+            obj.data = flipud( obj.data );
+            Z2 = z_value( obj );
+            
+            Line_1 = + 1.96 * ones(1  ,  n);
+            Line_2 = - 1.96 * ones(1  ,  n);
+            
+            
+            figure()
+            hold on
+            
+            plot(1:n, Line_1, 'k--', 'LineWidth', 2)
+            plot(1:n, Line_2, 'k--', 'LineWidth', 2)
+            plot(Z1)
+            plot(Z2)
+            
+            axis([0 n+10 -2.2 2.2])
+            
+            title(' Trend Analysis using Mann-Kandall Test ')
+            grid on
+            hold off
+        end
+        
+        
+        
+        function Z = z_value( obj )
+            
+            n = obj.N;
+            t = zeros(n , 1);
+            Data = obj.data;
+            
+            
+            for i = 1 : n-1
+                t(i) = length(   find(  Data(i) >=  Data(i+1 : end)  )   );
+            end
+            
+            d = cumsum(t);
+            Z = (  d - mean( d )  )./  std( d );
+            
+        end
+        
+        
+        
+        % Trend removal usind 'Moving-Average' method:
+        function MA = Moving_Average( obj )
+            
+            n = 5;
+            Data = obj.data(:);
+            MA = NaN(length(Data) - n+1  ,  1);
+            
+            for i = 1  :  length(Data) - n+1
+                MA(i) = mean(  Data(i  :  i + n-1)  );
+            end
+            
+        end
+        
+        
+        
+        
+        % Trend removal usind 'Differencing' method:
+        function diff = Differencing(obj , LagTime)
+            if ~exist('LagTime', 'var')
+                LagTime = 1;
+            end
+            
+            Data = obj.data(:) ;
+            
+            diff = Data(LagTime+1  :  end) - ...
+                Data(1  :  end-LagTime) ;
+            
+        end
+        
+        
+        
+        
+        function n = get.N( obj )
+           n = length( obj.data ); 
+        end
+        
+    end
+end
+
+%% ==============================================================================================================================================
+%% ==============================================================================================================================================
+%% ==============================================================================================================================================
+%% ==============================================================================================================================================
+%% ==============================================================================================================================================
+
+
+%% Start
+
+clc
+clear
+close all
+
+
+
+
+%% Data Entry
+    
+    load GWL
+    
+    obj = Time_Series( GWL );
+    obj.Z_Value_Mann_Kendall_Test    
+    clc
+    
+    diff = obj.Differencing();
+    obj.data = diff(:) ;
+    obj.Z_Value_Mann_Kendall_Test
+    clc
